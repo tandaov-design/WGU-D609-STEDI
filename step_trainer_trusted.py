@@ -33,6 +33,19 @@ filtered_df = spark.sql("""
 
 print(f"Step trainer trusted row count: {filtered_df.count()}")
 
-filtered_df.write.mode("overwrite").json("s3://wgutdao20/step_trainer/trusted/")
+# Convert to DynamicFrame and write with catalog update
+filtered_dynamic = DynamicFrame.fromDF(filtered_df, glueContext, "filtered_dynamic")
+
+sink = glueContext.getSink(
+    path="s3://wgutdao20/step_trainer/trusted/",
+    connection_type="s3",
+    updateBehavior="UPDATE_IN_DATABASE",
+    partitionKeys=[],
+    enableUpdateCatalog=True,
+    transformation_ctx="sink"
+)
+sink.setCatalogInfo(catalogDatabase="stedi_db", catalogTableName="step_trainer_trusted")
+sink.setFormat("json")
+sink.writeFrame(filtered_dynamic)
 
 job.commit()
